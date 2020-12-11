@@ -59,8 +59,8 @@ def plot_conseq(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
     sns.set_style("darkgrid")
     palette = sns.dark_palette("#69d", reverse=False, n_colors=14)
 
-    fig, axes = plt.subplots(4, 1, figsize=(8, 8), sharex=True)
-    fig.suptitle("Následky nehod v jednotlivých krajích", fontsize=16, fontweight='bold')
+    fig, axes = plt.subplots(4, 1, figsize=(8.27, 11.69), sharex=True)
+    fig.suptitle("Následky nehod v jednotlivých krajích", fontsize=16)
     axes = axes.flatten()
 
     for i in range(4):
@@ -86,34 +86,72 @@ def plot_conseq(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
 
 # Ukol 3: příčina nehody a škoda
 def plot_damage(df: pd.DataFrame, fig_location: str = None, show_figure: bool = False):
-    selected_regions = ["PHA", "STC", "ULK", "OLK"]
+    # select only desired data
+    selected_regions = ["PHA", "STC", "ULK", "JHM"]
     df_plot = df[['p12', 'p53', 'region']]
-
     df_plot = df_plot[df_plot["region"].isin(selected_regions)]
     df['p53'] = df['p53'].div(10).astype(int)
 
-    intervals = pd.IntervalIndex.from_tuples([(100, 100), (201, 209), (301, 311), (401, 414), (501, 516), (601, 615)],
-                                             closed="both")
-    df_plot['p12'] = pd.cut(df_plot['p12'], bins=intervals).map(dict(zip(intervals, ["a", "b", "c", "d", "e", "f"])))
-    # df_plot['p12'].categories = ["a", "b", "c", "d", "e", "f"]
+    # couple pricina nehody
+    p12_interval = [(100, 100), (201, 209), (301, 311), (401, 414), (501, 516), (601, 615)]
+    p12_labels = ["nezaviněná řidičem", "nepřiměřená rychlost jízdy", "nesprávné předjíždění",
+                  "nedání přednosti v jízdě", "nesprávný způsob jízdy", "technická závada vozidla"]
 
+    intervals = pd.IntervalIndex.from_tuples(p12_interval, closed="both")
+    df_plot['p12'] = pd.cut(df_plot['p12'], bins=intervals).map(
+        dict(zip(intervals, p12_labels)))
+
+    # couple skoda
     max_value = df_plot['p53'].max()
-    df_plot['p53'] = pd.cut(df_plot['p53'], [-1, 50, 200, 500, 1000, max_value + 1], labels=["a", "b", "c", "d", "e"])
+    p53_intervals = [-1, 50, 200, 500, 1000, max_value + 1]
+    p53_labels = ["<50", "50-200", "200-500", "500-1000", ">1000"]
+    df_plot['p53'] = pd.cut(df_plot['p53'], p53_intervals, labels=p53_labels)
 
-    fig, axes = plt.subplots(4, 1, figsize=(8, 8))
-    fig.suptitle("Příčina nehody a škoda v krajích Praha, Středočeský, Ústecký a Olomoucký", fontsize=16,
+    # plot
+    sns.set_style("darkgrid")
+    sns.set_palette(sns.color_palette("hls"))
+
+    fig, axes = plt.subplots(2, 2, figsize=(8.27, 11.69))
+    fig.subplots_adjust(bottom=0.8)
+    fig.suptitle("Příčina nehody a škoda v krajích\nPraha, Středočeský, Ústecký a Olomoucký", fontsize=14,
                  fontweight='bold')
     axes = axes.flatten()
 
+    fig.tight_layout(rect=(0.5, 0.5, 1, 1))
+
+    max_y_value = df_plot.groupby(['region', 'p12'])['p53'].value_counts().max()
     for i in range(4):
         data = df_plot[df_plot["region"] == selected_regions[i]]
-        sns.catplot(data=data, x="p53", col="p12", ax=axes[i])
+        sns.countplot(data=data, x="p53", hue="p12", ax=axes[i])
+
+        axes[i].set(yscale="log")
         axes[i].spines["top"].set_visible(False)
         axes[i].spines["right"].set_visible(False)
+        axes[i].set(ylabel="Škoda [tisíc Kč]", xlabel='Počet')
+        axes[i].get_legend().remove()
+        axes[i].set_title(selected_regions[i])
+        axes[i].set_ylim(top=max_y_value * 1.2)
+        axes[i].tick_params(axis='x', labelrotation=10)
 
-    plt.show()
-    plt.close()
-    print('a')
+    # legend
+    # handles = labels = []
+    # for i in range(4):
+    #     handle, label = axes[i].get_legend_handles_labels()
+    #     handles.append(handle)
+    #     labels.append(label)
+
+    #handles, labels = axes[3].get_legend_handles_labels()
+    fig.tight_layout()
+    #fig.legend(ncol=2, loc=(0, -0.2))
+    # fig.legend(handles, p12_labels, bbox_to_anchor=(0, 1), loc='upper left', ncol=2)
+    axes[2].legend(loc=(0, -0.55))
+
+    if show_figure:
+        plt.show()
+        plt.close()
+
+    if fig_location is not None:
+        fig.savefig(fig_location)
 
 
 # Ukol 4: povrch vozovky
