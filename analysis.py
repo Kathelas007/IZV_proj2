@@ -59,9 +59,18 @@ def plot_conseq(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
     fig, axes = plt.subplots(4, 1, figsize=(8, 8), sharex=True)
     axes = axes.flatten()
 
-    for i in range(4):
-        sns.barplot(data=df_plot, x="region", y=df_plot.columns[i+1], ax=axes[i])
+    palette = sns.dark_palette("#69d", reverse=False, n_colors=14)
 
+    for i in range(4):
+        column = df_plot.columns[i + 1]
+        rank = df_plot[column].argsort()
+
+        sns.barplot(data=df_plot, x="region", y=column, ax=axes[i], palette=np.array(palette[::-1])[rank])
+
+        axes[i].set(ylabel="Počet", xlabel='')
+        axes[i].set_title(axes_names[i])
+
+    axes[-1].set(xlabel="Kraj")
 
     plt.show()
     plt.close()
