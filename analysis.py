@@ -56,10 +56,12 @@ def plot_conseq(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
 
     axes_names = ["Úmrtí", "Těžká zranění", "Lehká zranění", "Celkem nehod"]
 
-    fig, axes = plt.subplots(4, 1, figsize=(8, 8), sharex=True)
-    axes = axes.flatten()
-
+    sns.set_style("darkgrid")
     palette = sns.dark_palette("#69d", reverse=False, n_colors=14)
+
+    fig, axes = plt.subplots(4, 1, figsize=(8, 8), sharex=True)
+    fig.suptitle("Následky nehod v jednotlivých krajích", fontsize=16, fontweight='bold')
+    axes = axes.flatten()
 
     for i in range(4):
         column = df_plot.columns[i + 1]
@@ -69,17 +71,49 @@ def plot_conseq(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
 
         axes[i].set(ylabel="Počet", xlabel='')
         axes[i].set_title(axes_names[i])
+        axes[i].spines["top"].set_visible(False)
+        axes[i].spines["right"].set_visible(False)
 
     axes[-1].set(xlabel="Kraj")
 
+    if show_figure:
+        plt.show()
+        plt.close()
+
+    if fig_location is not None:
+        fig.savefig(fig_location)
+
+
+# Ukol 3: příčina nehody a škoda
+def plot_damage(df: pd.DataFrame, fig_location: str = None, show_figure: bool = False):
+    selected_regions = ["PHA", "STC", "ULK", "OLK"]
+    df_plot = df[['p12', 'p53', 'region']]
+
+    df_plot = df_plot[df_plot["region"].isin(selected_regions)]
+    df['p53'] = df['p53'].div(10).astype(int)
+
+    intervals = pd.IntervalIndex.from_tuples([(100, 100), (201, 209), (301, 311), (401, 414), (501, 516), (601, 615)],
+                                             closed="both")
+    df_plot['p12'] = pd.cut(df_plot['p12'], bins=intervals).map(dict(zip(intervals, ["a", "b", "c", "d", "e", "f"])))
+    # df_plot['p12'].categories = ["a", "b", "c", "d", "e", "f"]
+
+    max_value = df_plot['p53'].max()
+    df_plot['p53'] = pd.cut(df_plot['p53'], [-1, 50, 200, 500, 1000, max_value + 1], labels=["a", "b", "c", "d", "e"])
+
+    fig, axes = plt.subplots(4, 1, figsize=(8, 8))
+    fig.suptitle("Příčina nehody a škoda v krajích Praha, Středočeský, Ústecký a Olomoucký", fontsize=16,
+                 fontweight='bold')
+    axes = axes.flatten()
+
+    for i in range(4):
+        data = df_plot[df_plot["region"] == selected_regions[i]]
+        sns.catplot(data=data, x="p53", col="p12", ax=axes[i])
+        axes[i].spines["top"].set_visible(False)
+        axes[i].spines["right"].set_visible(False)
+
     plt.show()
     plt.close()
-
-
-# Ukol3: příčina nehody a škoda
-def plot_damage(df: pd.DataFrame, fig_location: str = None,
-                show_figure: bool = False):
-    pass
+    print('a')
 
 
 # Ukol 4: povrch vozovky
@@ -93,7 +127,7 @@ if __name__ == "__main__":
     # zde je ukazka pouziti, tuto cast muzete modifikovat podle libosti
     # skript nebude pri testovani pousten primo, ale budou volany konkreni ¨
     # funkce.
-    df = get_dataframe("accidents.pkl.gz", True)
-    plot_conseq(df, fig_location="01_nasledky.png", show_figure=True)
-    # plot_damage(df, "02_priciny.png", True)
+    df = get_dataframe("accidents.pkl.gz")
+    # plot_conseq(df, fig_location="01_nasledky.png", show_figure=True)
+    plot_damage(df, "02_priciny.png", True)
     # plot_surface(df, "03_stav.png", True)
