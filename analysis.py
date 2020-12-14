@@ -141,11 +141,8 @@ def plot_damage(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
         handles.append(handle)
         labels.append(label)
 
-    # fig.subplots_adjust(bottom=0.5, top=1.25)
-    # fig.tight_layout(rect=[0, 0, 1, 1.5])
     fig.tight_layout()
     axes[2].legend(loc=(0, -0.55))
-    # fig.legend(label)
 
     if show_figure:
         plt.show()
@@ -162,37 +159,59 @@ def plot_surface(df: pd.DataFrame, fig_location: str = None, show_figure: bool =
     df_plot = df[['p16', 'date', 'region']]
     df_plot = df_plot[df_plot["region"].isin(selected_regions)]
 
-    df_plot["month"] = pd.DatetimeIndex(df_plot["date"]).month
-    df_plot["year"] = pd.DatetimeIndex(df_plot["date"]).year
+    # "resample" to month
+    df_plot["date_m"] = df_plot["date"].astype("datetime64[M]")
 
     # multiindex
-    df_plot = pd.pivot_table(df_plot, index=["region", "month", "year"], columns=["p16"], aggfunc=pd.Series.count,
+    df_plot = pd.pivot_table(df_plot, index=["region", "date_m"], columns=["p16"], aggfunc=pd.Series.count,
                              fill_value=0)
 
     df_plot.reset_index(inplace=True)
 
     # rename collumns
-    p16_labels = ["kraj", "měsíc", "rok",
-        "jiný stav povrchu vozovky v době nehody", "povrch suchý", "povrch suchý",
-        "povrch mokrý",
-        "na vozovce je bláto",
-        "na vozovce je náledí, ujetý sníh", "na vozovce je náledí, ujetý sníh",
-        "na vozovce je rozlitý olej, nafta apod.",
-        "souvislá sněhová vrstva, rozbředlý sníh", "náhlá změna stavu vozovky"]
+    p16_labels = ["kraj", "měsíc",
+                  "jiný stav povrchu vozovky v\ndobě nehody", "povrch suchý", "povrch suchý",
+                  "povrch mokrý",
+                  "na vozovce je bláto",
+                  "na vozovce je náledí,\nujetý sníh", "na vozovce je náledí,\nujetý sníh",
+                  "na vozovce je rozlitý olej,\nnafta apod.",
+                  "souvislá sněhová\nvrstva, rozbředlý sníh", "náhlá změna stavu\nvozovky"]
     df_plot.columns = p16_labels
-
     df_plot.reset_index(inplace=True)
-    df_plot = df_plot.melt(["index", "kraj", "rok", "měsíc"])
 
-    g = sns.FacetGrid(data=df_plot, col="kraj", col_wrap=2)
-    g.map_dataframe(sns.lineplot, x="měsíc", y="value", hue="variable")
-    plt.show()
+    # take p16 values together
+    df_plot = df_plot.melt(["index", "kraj", "měsíc"])
 
-    print("a")
+    # plot style
+    sns.set_style("darkgrid")
+    sns.set_palette(sns.color_palette("hls"))
+
+    # plot
+    g = sns.FacetGrid(data=df_plot, col="kraj", col_wrap=2, hue="variable", height=2.5, aspect=2)
+    g.map_dataframe(sns.lineplot, x="měsíc", y="value")
+
+    g.set_axis_labels("Rok", "Počet")
+
+    # fig.tight_layout()
+    # axes[2].legend(loc=(0, -0.55))
+
+    g.fig.subplots_adjust(right=2)
+    g.axes.flatten()[3].legend(loc='center left', bbox_to_anchor=(1.05, 1))
+
+    # g.add_legend(loc='center right', bbox_to_anchor=(1.25, 0.5))
+
+    # plt.legend(loc='center right', bbox_to_anchor=(1.25, 0.5))
+    # plt.legend(bbox_to_anchor=(-1, -0.1), loc="upper center")
+
+    if show_figure:
+        plt.show()
+        plt.close()
+
+    if fig_location is not None:
+        g.savefig(fig_location)
 
 
 if __name__ == "__main__":
-    pass
     # zde je ukazka pouziti, tuto cast muzete modifikovat podle libosti
     # skript nebude pri testovani pousten primo, ale budou volany konkreni ¨
     # funkce.
