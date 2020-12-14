@@ -15,19 +15,28 @@ str_columns = ['h', 'i', 'k', 'l', 'n', 'p', 'q', 't']
 
 # Ukol 1: nacteni dat
 def get_dataframe(filename: str = "accidents.pkl.gz", verbose: bool = False) -> pd.DataFrame:
-    get_memory = lambda x: x.memory_usage(deep=True).sum() / (1024 ** 2)
+    """
+    Function loads and cleans dataset
+    :param filename: name of file with dataset
+    :param verbose: whether inform about size before and after cleaning
+    :return: cleaned dataset
+    """
+    get_used_memory = lambda x: x.memory_usage(deep=True).sum() / (1024 ** 2)
 
     adf = pd.read_pickle(filename)
 
+    #info
     if verbose:
-        print('orig_size={:.1f} MB'.format(get_memory(adf)))
+        print('orig_size={:.1f} MB'.format(get_used_memory(adf)))
 
     # date
     adf['date'] = adf['p2a']
     adf['date'] = pd.to_datetime(adf['date'])
 
+    # unnecessary columns
     adf = adf.drop(['p2a', 'p2b', 'j'], axis=1)
 
+    # convert to suitable data types
     for col in str_columns:
         adf[col] = adf[col].astype(str)
 
@@ -37,16 +46,26 @@ def get_dataframe(filename: str = "accidents.pkl.gz", verbose: bool = False) -> 
     for col in float_columns:
         adf[col] = pd.to_numeric(adf[col].str.replace(',', '.'))
 
+    # info
     if verbose:
-        print('new_size={:.1f} MB'.format(get_memory(adf)))
+        print('new_size={:.1f} MB'.format(get_used_memory(adf)))
 
     return adf
 
 
 # Ukol 2: následky nehod v jednotlivých regionech
 def plot_conseq(df: pd.DataFrame, fig_location: str = None, show_figure: bool = False):
+    """
+    Function creates figure of accidents in regions
+    :param df: data
+    :param fig_location: where to save figure, if None, fig will no be saved
+    :param show_figure: whether show figure or not
+    """
+
+    # select data
     df_plot = df[['p1', 'p13a', 'p13b', 'p13c', 'region']]
 
+    # prepare data for each region
     df_plot = df_plot.groupby(['region']).agg(
         death=('p13a', 'sum'),
         hard=('p13b', 'sum'),
@@ -56,13 +75,16 @@ def plot_conseq(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
 
     axes_names = ["Úmrtí", "Těžká zranění", "Lehká zranění", "Celkem nehod"]
 
+    # plot style
     sns.set_style("darkgrid")
     palette = sns.dark_palette("#69d", reverse=False, n_colors=14)
 
+    #plot
     fig, axes = plt.subplots(4, 1, figsize=(8.27, 11.69), sharex=True)
     fig.suptitle("Následky nehod v jednotlivých krajích", fontsize=16)
-    axes = axes.flatten()
 
+    # axes setting
+    axes = axes.flatten()
     for i in range(4):
         column = df_plot.columns[i + 1]
         rank = df_plot[column].argsort()
@@ -86,6 +108,13 @@ def plot_conseq(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
 
 # Ukol 3: příčina nehody a škoda
 def plot_damage(df: pd.DataFrame, fig_location: str = None, show_figure: bool = False):
+    """
+    Function creates figure of accident cause and damage
+    :param df: data
+    :param fig_location: where to save figure, if None, fig will no be saved
+    :param show_figure: whether show figure or not
+    """
+
     # select only desired data
     selected_regions = ["PHA", "STC", "ULK", "JHM"]
     df_plot = df[['p12', 'p53', 'region']]
@@ -120,11 +149,12 @@ def plot_damage(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
     fig.tight_layout(rect=(0.5, 0.5, 1, 1))
 
     max_y_value = df_plot.groupby(['region', 'p12'])['p53'].value_counts().max()
-    s = None
+
     for i in range(4):
         data = df_plot[df_plot["region"] == selected_regions[i]]
-        s = sns.countplot(data=data, x="p53", hue="p12", ax=axes[i])
+        sns.countplot(data=data, x="p53", hue="p12", ax=axes[i])
 
+        # set axis
         axes[i].set(yscale="log")
         axes[i].spines["top"].set_visible(False)
         axes[i].spines["right"].set_visible(False)
@@ -154,6 +184,13 @@ def plot_damage(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
 
 # Ukol 4: povrch vozovky
 def plot_surface(df: pd.DataFrame, fig_location: str = None, show_figure: bool = False):
+    """
+    Function creates figure of roadway surface
+    :param df: data
+    :param fig_location: where to save figure
+    :param show_figure: wheter show figure or not
+    """
+
     # selected data only
     selected_regions = ["PHA", "STC", "ULK", "JHM"]
     df_plot = df[['p16', 'date', 'region']]
@@ -183,25 +220,25 @@ def plot_surface(df: pd.DataFrame, fig_location: str = None, show_figure: bool =
     df_plot = df_plot.melt(["index", "kraj", "měsíc"])
 
     # plot style
-    sns.set_style("darkgrid")
+    sns.set_style("whitegrid")
     sns.set_palette(sns.color_palette("hls"))
 
     # plot
-    g = sns.FacetGrid(data=df_plot, col="kraj", col_wrap=2, hue="variable", height=2.5, aspect=2)
+    g = sns.FacetGrid(data=df_plot, col="kraj", col_wrap=2, hue="variable", height=4.25, aspect=1.8)
     g.map_dataframe(sns.lineplot, x="měsíc", y="value")
 
+    # axes and legend
     g.set_axis_labels("Rok", "Počet")
+    g.fig.tight_layout()
+    g.axes.flatten()[2].legend(loc=(0, -0.70), ncol=3)
 
-    # fig.tight_layout()
-    # axes[2].legend(loc=(0, -0.55))
+    g.fig.suptitle("Stav vozovky v jednotlivých měsících při nehodách", fontsize=14,
+                 fontweight='bold')
 
-    g.fig.subplots_adjust(right=2)
-    g.axes.flatten()[3].legend(loc='center left', bbox_to_anchor=(1.05, 1))
-
-    # g.add_legend(loc='center right', bbox_to_anchor=(1.25, 0.5))
-
-    # plt.legend(loc='center right', bbox_to_anchor=(1.25, 0.5))
-    # plt.legend(bbox_to_anchor=(-1, -0.1), loc="upper center")
+    # axes titles
+    axes = g.axes.flatten()
+    for i in range(4):
+        axes[i].set_title(selected_regions[i])
 
     if show_figure:
         plt.show()
@@ -212,10 +249,7 @@ def plot_surface(df: pd.DataFrame, fig_location: str = None, show_figure: bool =
 
 
 if __name__ == "__main__":
-    # zde je ukazka pouziti, tuto cast muzete modifikovat podle libosti
-    # skript nebude pri testovani pousten primo, ale budou volany konkreni ¨
-    # funkce.
     df = get_dataframe("accidents.pkl.gz")
-    # plot_conseq(df, fig_location="01_nasledky.png", show_figure=True)
-    # plot_damage(df, "02_priciny.png", True)
+    plot_conseq(df, fig_location="01_nasledky.png", show_figure=True)
+    plot_damage(df, "02_priciny.png", True)
     plot_surface(df, "03_stav.png", True)
