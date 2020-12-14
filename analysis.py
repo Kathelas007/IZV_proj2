@@ -120,9 +120,10 @@ def plot_damage(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
     fig.tight_layout(rect=(0.5, 0.5, 1, 1))
 
     max_y_value = df_plot.groupby(['region', 'p12'])['p53'].value_counts().max()
+    s = None
     for i in range(4):
         data = df_plot[df_plot["region"] == selected_regions[i]]
-        sns.countplot(data=data, x="p53", hue="p12", ax=axes[i])
+        s = sns.countplot(data=data, x="p53", hue="p12", ax=axes[i])
 
         axes[i].set(yscale="log")
         axes[i].spines["top"].set_visible(False)
@@ -134,17 +135,17 @@ def plot_damage(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
         axes[i].tick_params(axis='x', labelrotation=10)
 
     # legend
-    # handles = labels = []
-    # for i in range(4):
-    #     handle, label = axes[i].get_legend_handles_labels()
-    #     handles.append(handle)
-    #     labels.append(label)
+    handles = labels = []
+    for i in range(4):
+        handle, label = axes[i].get_legend_handles_labels()
+        handles.append(handle)
+        labels.append(label)
 
-    #handles, labels = axes[3].get_legend_handles_labels()
+    # fig.subplots_adjust(bottom=0.5, top=1.25)
+    # fig.tight_layout(rect=[0, 0, 1, 1.5])
     fig.tight_layout()
-    #fig.legend(ncol=2, loc=(0, -0.2))
-    # fig.legend(handles, p12_labels, bbox_to_anchor=(0, 1), loc='upper left', ncol=2)
     axes[2].legend(loc=(0, -0.55))
+    # fig.legend(label)
 
     if show_figure:
         plt.show()
@@ -155,9 +156,39 @@ def plot_damage(df: pd.DataFrame, fig_location: str = None, show_figure: bool = 
 
 
 # Ukol 4: povrch vozovky
-def plot_surface(df: pd.DataFrame, fig_location: str = None,
-                 show_figure: bool = False):
-    pass
+def plot_surface(df: pd.DataFrame, fig_location: str = None, show_figure: bool = False):
+    # selected data only
+    selected_regions = ["PHA", "STC", "ULK", "JHM"]
+    df_plot = df[['p16', 'date', 'region']]
+    df_plot = df_plot[df_plot["region"].isin(selected_regions)]
+
+    df_plot["month"] = pd.DatetimeIndex(df_plot["date"]).month
+    df_plot["year"] = pd.DatetimeIndex(df_plot["date"]).year
+
+    # multiindex
+    df_plot = pd.pivot_table(df_plot, index=["region", "month", "year"], columns=["p16"], aggfunc=pd.Series.count,
+                             fill_value=0)
+
+    df_plot.reset_index(inplace=True)
+
+    # rename collumns
+    p16_labels = ["kraj", "měsíc", "rok",
+        "jiný stav povrchu vozovky v době nehody", "povrch suchý", "povrch suchý",
+        "povrch mokrý",
+        "na vozovce je bláto",
+        "na vozovce je náledí, ujetý sníh", "na vozovce je náledí, ujetý sníh",
+        "na vozovce je rozlitý olej, nafta apod.",
+        "souvislá sněhová vrstva, rozbředlý sníh", "náhlá změna stavu vozovky"]
+    df_plot.columns = p16_labels
+
+    df_plot.reset_index(inplace=True)
+    df_plot = df_plot.melt(["index", "kraj", "rok", "měsíc"])
+
+    g = sns.FacetGrid(data=df_plot, col="kraj", col_wrap=2)
+    g.map_dataframe(sns.lineplot, x="měsíc", y="value", hue="variable")
+    plt.show()
+
+    print("a")
 
 
 if __name__ == "__main__":
@@ -167,5 +198,5 @@ if __name__ == "__main__":
     # funkce.
     df = get_dataframe("accidents.pkl.gz")
     # plot_conseq(df, fig_location="01_nasledky.png", show_figure=True)
-    plot_damage(df, "02_priciny.png", True)
-    # plot_surface(df, "03_stav.png", True)
+    # plot_damage(df, "02_priciny.png", True)
+    plot_surface(df, "03_stav.png", True)
